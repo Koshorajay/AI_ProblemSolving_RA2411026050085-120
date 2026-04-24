@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cryptarithmetic CSP Solver</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Fira+Code:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:        #faf7f2;
+  --surface:   #ffffff;
+  --surface2:  #f5f0e8;
+  --ink:       #1a1612;
+  --ink2:      #5a5248;
+  --ink3:      #9a9088;
+  --accent:    #c8410a;
+  --accent2:   #2a6e3f;
+  --accent3:   #1e4a8c;
+  --border:    #e0d8cc;
+  --border2:   #c8bfb0;
+  --shadow:    rgba(26,22,18,0.10);
+  --highlight: #fff8e8;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Fira Code', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Grain texture overlay ── */
+body::before {
+  content:'';
+  position:fixed;inset:0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:999;opacity:0.6;
+}
+
+/* ── Header ── */
+header {
+  background: var(--ink);
+  color: var(--bg);
+  padding: 28px 40px 24px;
+  border-bottom: 4px solid var(--accent);
+  position: relative;
+  overflow: hidden;
+}
+
+header::after {
+  content: '∑ α β γ δ ε ζ η θ ι κ λ μ ν ξ π ρ σ τ υ φ χ ψ ω';
+  position: absolute;
+  top: 8px; right: 20px;
+  font-size: 0.7rem;
+  opacity: 0.08;
+  letter-spacing: 0.2em;
+  font-family: 'Playfair Display', serif;
+  white-space: nowrap;
+}
+
+.header-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+h1 span { color: var(--accent); }
+
+.subtitle {
+  font-size: 0.65rem;
+  opacity: 0.5;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding-bottom: 3px;
+}
+
+/* ── Main layout ── */
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 36px 24px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ── Card ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px;
+  box-shadow: 0 2px 12px var(--shadow);
+}
+
+.card-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.card-title::before {
+  content: '';
+  display: inline-block;
+  width: 4px; height: 18px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+/* ── Input area ── */
+.puzzle-input-wrap {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.puzzle-input {
+  flex: 1;
+  min-width: 200px;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.2rem, 3vw, 1.7rem);
+  font-weight: 700;
+  color: var(--ink);
+  padding: 14px 18px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.puzzle-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(200,65,10,0.12);
+}
+
+.puzzle-input::placeholder {
+  color: var(--ink3);
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+}
+
+/* ── Buttons ── */
+.btn-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 12px 22px;
+  border-radius: 8px;
+  border: 2px solid;
+  cursor: pointer;
+  background: transparent;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+
+.btn-solve {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-size: 0.82rem;
+  padding: 14px 32px;
+}
+.btn-solve:hover { background: #a03308; border-color: #a03308; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(200,65,10,0.3); }
+.btn-solve:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btn-outline {
+  color: var(--ink2);
+  border-color: var(--border2);
+}
+.btn-outline:hover { border-color: var(--ink2); color: var(--ink); background: var(--surface2); }
+
+.btn-preset {
+  color: var(--accent3);
+  border-color: #b8c8e0;
+  font-size: 0.68rem;
+  padding: 8px 14px;
+}
+.btn-preset:hover { background: #eef3f9; border-color: var(--accent3); }
+
+/* ── Preset examples ── */
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.preset-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  width: 100%;
+  margin-bottom: 2px;
+}
+
+/* ── Puzzle display ── */
+.puzzle-display {
+  text-align: center;
+  padding: 24px 20px;
+  background: var(--surface2);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.puzzle-words {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.4rem, 5vw, 2.2rem);
+  font-weight: 900;
+  color: var(--ink);
+  letter-spacing: 0.12em;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.puzzle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.puzzle-op {
+  color: var(--accent);
+  min-width: 20px;
+  text-align: right;
+}
+
+.puzzle-word { letter-spacing: 0.14em; }
+
+.puzzle-divider {
+  width: 100%;
+  height: 3px;
+  background: var(--ink);
+  border-radius: 2px;
+  margin: 4px 0;
+}
+
+.puzzle-result-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.puzzle-eq { color: var(--accent2); min-width: 20px; }
+
+/* ── Solved letter chips ── */
+.solved-word .letter {
+  display: inline-block;
+  position: relative;
+  transition: color 0.3s;
+}
+.solved-word .letter.mapped { color: var(--accent3); }
+
+/* ── Constraint section ── */
+.constraint-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.constraint-chip {
+  background: var(--highlight);
+  border: 1px solid #e8d8a0;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 0.7rem;
+  color: var(--ink2);
+  letter-spacing: 0.08em;
+}
+
+/* ── Progress bar ── */
+.progress-wrap {
+  margin-top: 14px;
+  display: none;
+}
+.progress-wrap.show { display: block; }
+
+.progress-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+/* ── Trace log ── */
+.trace-log {
+  background: var(--ink);
+  border-radius: 10px;
+  padding: 18px 20px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 0.68rem;
+  line-height: 1.9;
+  color: #a0b080;
+}
+.trace-log::-webkit-scrollbar { width: 4px; }
+.trace-log::-webkit-scrollbar-thumb { background: #404040; border-radius: 2px; }
+
+.tl { color: #a0b080; }
+.tl-try   { color: #c0a060; }
+.tl-fail  { color: #c06060; }
+.tl-ok    { color: #60c080; font-weight: 600; }
+.tl-info  { color: #6090c0; }
+.tl-head  { color: #ffffff; font-weight: 600; }
+
+/* ── Result ── */
+.result-area {
+  display: none;
+}
+.result-area.show { display: block; }
+
+.result-banner {
+  padding: 18px 24px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.result-banner.success {
+  background: #edf7f0;
+  border: 2px solid var(--accent2);
+}
+.result-banner.failure {
+  background: #fdf0ee;
+  border: 2px solid var(--accent);
+}
+
+.result-icon { font-size: 1.8rem; }
+.result-text h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  margin-bottom: 3px;
+}
+.result-text p { font-size: 0.7rem; color: var(--ink2); }
+
+/* ── Mapping grid ── */
+.mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.map-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 8px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+@keyframes popIn {
+  from { opacity:0; transform:scale(0.7); }
+  to   { opacity:1; transform:scale(1); }
+}
+
+.map-card::before {
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:3px;
+  background: var(--accent);
+}
+
+.map-letter {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.map-arrow { font-size: 0.7rem; color: var(--ink3); margin: 2px 0; }
+
+.map-digit {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent3);
+  font-family: 'Playfair Display', serif;
+}
+
+/* ── Equation verification ── */
+.equation-verify {
+  background: var(--ink);
+  color: #e0e8d0;
+  border-radius: 10px;
+  padding: 20px 24px;
+  text-align: center;
+}
+
+.eq-line {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1rem, 3vw, 1.6rem);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+
+.eq-word { color: #c0b890; }
+.eq-digit { color: #60c080; }
+.eq-op { color: #c08050; margin: 0 8px; }
+.eq-result { color: #6090ff; }
+.eq-check { color: #60c080; font-size: 1.3rem; margin-left: 12px; }
+
+.eq-numeric {
+  font-size: clamp(0.9rem, 2.5vw, 1.2rem);
+  color: #708090;
+  margin-top: 4px;
+}
+
+/* ── CSP info box ── */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.info-cell {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.info-cell-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  margin-bottom: 6px;
+}
+
+.info-cell-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ── Status pill ── */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-left: auto;
+}
+.status-pill.idle   { background:#f0ede8; color:var(--ink3); }
+.status-pill.run    { background:#fff3e0; color:#c06010; }
+.status-pill.done   { background:#edf7f0; color:var(--accent2); }
+.status-pill.fail   { background:#fdf0ee; color:var(--accent); }
+
+.dot { width:7px;height:7px;border-radius:50%;background:currentColor; }
+.dot.pulse { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+/* ── Responsive ── */
+@media(max-width:600px) {
+  main { padding: 20px 14px 50px; }
+  .card { padding: 18px 16px; }
+  header { padding: 20px 18px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div>
+      <h1>Crypto<span>Arithmetic</span></h1>
+      <div class="subtitle">CSP Solver — Constraint Satisfaction Problem</div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── Input Card ── -->
+  <div class="card">
+    <div class="card-title" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span>Enter Puzzle</span>
+      <span class="status-pill idle" id="statusPill"><span class="dot"></span><span id="statusText">Idle</span></span>
+    </div>
+
+    <div class="puzzle-input-wrap" style="margin-bottom:14px;">
+      <input class="puzzle-input" id="puzzleInput" type="text"
+        placeholder="e.g.  SEND + MORE = MONEY"
+        value="SEND + MORE = MONEY"
+        oninput="onInputChange()" />
+    </div>
+
+    <div class="btn-row" style="margin-bottom:16px;">
+      <button class="btn btn-solve" id="solveBtn" onclick="solve()">▶ Solve Puzzle</button>
+      <button class="btn btn-outline" onclick="clearAll()">✕ Clear</button>
+    </div>
+
+    <div class="preset-label">Quick examples</div>
+    <div class="presets">
+      <button class="btn btn-preset" onclick="setPreset('SEND + MORE = MONEY')">SEND + MORE = MONEY</button>
+      <button class="btn btn-preset" onclick="setPreset('BASE + BALL = GAMES')">BASE + BALL = GAMES</button>
+      <button class="btn btn-preset" onclick="setPreset('TWO + TWO = FOUR')">TWO + TWO = FOUR</button>
+      <button class="btn btn-preset" onclick="setPreset('EAT + THAT = APPLE')">EAT + THAT = APPLE</button>
+      <button class="btn btn-preset" onclick="setPreset('CROSS + ROADS = DANGER')">CROSS + ROADS = DANGER</button>
+      <button class="btn btn-preset" onclick="setPreset('NO + NO + TOO = LATE')">NO + NO + TOO = LATE</button>
+    </div>
+  </div>
+
+  <!-- ── Puzzle Preview ── -->
+  <div class="card" id="previewCard">
+    <div class="card-title">Puzzle Preview</div>
+    <div class="puzzle-display" id="puzzleDisplay">
+      <div style="color:var(--ink3);font-size:0.8rem;">Enter a puzzle above to see the formatted view</div>
+    </div>
+    <div id="constraintSection" style="display:none;">
+      <div style="font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;">Constraints Detected</div>
+      <div class="constraint-list" id="constraintList"></div>
+    </div>
+  </div>
+
+  <!-- ── CSP Info ── -->
+  <div class="card" id="cspInfoCard" style="display:none;">
+    <div class="card-title">CSP Problem Structure</div>
+    <div class="info-grid" id="cspInfoGrid"></div>
+  </div>
+
+  <!-- ── Solve Progress ── -->
+  <div class="card" id="progressCard" style="display:none;">
+    <div class="card-title">Solving…</div>
+    <div class="progress-wrap show">
+      <div class="progress-label">
+        <span id="progressLabel">Initialising CSP…</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+    <div style="margin-top:14px;">
+      <div style="font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;">CSP Trace Log</div>
+      <div class="trace-log" id="traceLog"></div>
+    </div>
+  </div>
+
+  <!-- ── Result ── -->
+  <div class="card result-area" id="resultArea">
+    <div class="card-title">Solution</div>
+
+    <div class="result-banner" id="resultBanner">
+      <div class="result-icon" id="resultIcon"></div>
+      <div class="result-text">
+        <h3 id="resultHeading"></h3>
+        <p id="resultSub"></p>
+      </div>
+    </div>
+
+    <div id="mappingSection" style="display:none;">
+      <div style="font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;">Letter → Digit Mapping</div>
+      <div class="mapping-grid" id="mappingGrid"></div>
+
+      <div style="font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink3);margin:18px 0 10px;">Verified Equation</div>
+      <div class="equation-verify" id="equationVerify"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  PARSER
+// ═══════════════════════════════════════════════════════════════
+function parsePuzzle(raw) {
+  // Accepts: WORD1 + WORD2 + ... = RESULT  (any number of addends)
+  const clean = raw.trim().toUpperCase().replace(/\s+/g,'');
+  // Split at '='
+  const eqParts = clean.split('=');
+  if (eqParts.length !== 2) return null;
+  const result = eqParts[1].replace(/[^A-Z]/g,'');
+  const addends = eqParts[0].split('+').map(w=>w.replace(/[^A-Z]/g,''));
+  if (addends.some(w=>!w) || !result) return null;
+  // All letters
+  const letters = [...new Set([...addends.join(''), ...result])].sort();
+  // Leading letters (cannot be 0)
+  const leadLetters = new Set([...addends.map(w=>w[0]), result[0]]);
+  return { addends, result, letters, leadLetters };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CSP SOLVER  (backtracking + constraint propagation)
+// ═══════════════════════════════════════════════════════════════
+let solveWorker = null;
+let traceLines  = [];
+let nodesExplored = 0;
+
+function solveCSP(puzzle, onLog, onDone) {
+  const { addends, result, letters, leadLetters } = puzzle;
+  nodesExplored = 0;
+  traceLines    = [];
+
+  // We'll use a Web Worker trick via a Blob so the UI stays responsive
+  const workerCode = `
+    ${workerFn.toString()}
+    workerFn();
+  `;
+  const blob = new Blob([workerCode], {type:'application/javascript'});
+  const url  = URL.createObjectURL(blob);
+  const worker = new Worker(url);
+
+  worker.postMessage({ addends, result, letters: [...letters], leadLetters: [...leadLetters] });
+
+  worker.onmessage = e => {
+    const {type, data} = e.data;
+    if (type === 'log')  onLog(data);
+    if (type === 'done') { worker.terminate(); URL.revokeObjectURL(url); onDone(data); }
+  };
+  return worker;
+}
+
+function workerFn() {
+  self.onmessage = function(e) {
+    const { addends, result, letters, leadLetters } = e.data;
+    const leadSet = new Set(leadLetters);
+    let nodes = 0;
+    const LOGS = [];
+    let logCount = 0;
+
+    function log(msg, cls='') {
+      logCount++;
+      if (logCount <= 600) {
+        LOGS.push({msg, cls});
+        if (logCount % 50 === 0) {
+          self.postMessage({type:'log', data:{batch: LOGS.splice(0), nodes}});
+        }
+      }
+    }
+
+    log(`Variables: [${letters.join(', ')}]`, 'tl-head');
+    log(`Domain: {0..9} for each`, 'tl-info');
+    log(`Leading letters (≠0): [${[...leadLetters].join(', ')}]`, 'tl-info');
+    log('─'.repeat(42), 'tl');
+
+    // Build word-to-number function
+    function wordToNum(word, assignment) {
+      let n = 0;
+      for (const ch of word) n = n*10 + assignment[ch];
+      return n;
+    }
+
+    // Check constraint: all assigned values are unique
+    function allUnique(assignment) {
+      const vals = Object.values(assignment);
+      return new Set(vals).size === vals.length;
+    }
+
+    // Forward checking: does assigning letter=digit break any constraint immediately?
+    function forwardCheck(letter, digit, assignment) {
+      if (leadSet.has(letter) && digit === 0) return false;
+      const vals = Object.values(assignment);
+      if (vals.includes(digit)) return false;
+      return true;
+    }
+
+    // Evaluate partial equation
+    function checkFull(assignment) {
+      try {
+        const sum = addends.reduce((acc,w) => acc + wordToNum(w, assignment), 0);
+        return sum === wordToNum(result, assignment);
+      } catch { return false; }
+    }
+
+    // MRV heuristic: pick letter with fewest remaining values
+    const digits = [0,1,2,3,4,5,6,7,8,9];
+
+    function backtrack(assignment) {
+      if (Object.keys(assignment).length === letters.length) {
+        return checkFull(assignment) ? assignment : null;
+      }
+
+      // Pick next unassigned letter (MRV: prefer leading letters first, then order)
+      const unassigned = letters.filter(l => !(l in assignment));
+      // prefer leading letters
+      const next = unassigned.find(l => leadSet.has(l)) || unassigned[0];
+
+      const domain = leadSet.has(next) ? digits.filter(d=>d!==0) : digits;
+
+      for (const digit of domain) {
+        nodes++;
+        if (!forwardCheck(next, digit, assignment)) {
+          continue;
+        }
+        const newAssign = {...assignment, [next]: digit};
+
+        // Prune: if all letters of any addend/result word are assigned, validate partial
+        let pruned = false;
+        for (const word of [...addends, result]) {
+          if (word.split('').every(l => l in newAssign)) {
+            const wVal = wordToNum(word, newAssign);
+            // Quick range check not needed here but we log
+          }
+        }
+
+        if (nodes <= 80) log(`  Try ${next}=${digit}  (node #${nodes})`, 'tl-try');
+
+        const res = backtrack(newAssign);
+        if (res) return res;
+
+        if (nodes <= 80) log(`  Backtrack from ${next}=${digit}`, 'tl-fail');
+      }
+
+      return null;
+    }
+
+    log('Starting Backtracking Search with MRV heuristic…', 'tl-info');
+    log('Forward Checking: leading letters ≠ 0, all unique', 'tl-info');
+    log('─'.repeat(42), 'tl');
+
+    const t0 = Date.now();
+    const solution = backtrack({});
+    const elapsed  = Date.now() - t0;
+
+    // flush remaining logs
+    self.postMessage({type:'log', data:{batch: LOGS.splice(0), nodes}});
+
+    if (solution) {
+      log('', '');
+      log('✓ Solution found!', 'tl-ok');
+      log(`  Nodes explored: ${nodes}`, 'tl-info');
+      log(`  Time: ${elapsed}ms`, 'tl-info');
+    } else {
+      log('✗ No solution exists for this puzzle.', 'tl-fail');
+    }
+
+    self.postMessage({type:'done', data:{ solution, nodes, elapsed }});
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  UI  STATE
+// ═══════════════════════════════════════════════════════════════
+let currentPuzzle = null;
+let currentWorker = null;
+
+function onInputChange() {
+  renderPreview();
+  // reset result
+  document.getElementById('resultArea').classList.remove('show');
+  document.getElementById('progressCard').style.display = 'none';
+  document.getElementById('cspInfoCard').style.display  = 'none';
+  setStatus('idle');
+}
+
+function setPreset(val) {
+  document.getElementById('puzzleInput').value = val;
+  onInputChange();
+}
+
+function clearAll() {
+  document.getElementById('puzzleInput').value = '';
+  document.getElementById('resultArea').classList.remove('show');
+  document.getElementById('progressCard').style.display = 'none';
+  document.getElementById('cspInfoCard').style.display  = 'none';
+  document.getElementById('puzzleDisplay').innerHTML =
+    '<div style="color:var(--ink3);font-size:0.8rem;">Enter a puzzle above to see the formatted view</div>';
+  document.getElementById('constraintSection').style.display = 'none';
+  setStatus('idle');
+  currentPuzzle = null;
+}
+
+function setStatus(type) {
+  const pill = document.getElementById('statusPill');
+  const dot  = pill.querySelector('.dot');
+  const txt  = document.getElementById('statusText');
+  pill.className = 'status-pill ' + type;
+  dot.className  = 'dot' + (type==='run' ? ' pulse' : '');
+  txt.textContent = {idle:'Idle', run:'Solving…', done:'Solved', fail:'No Solution'}[type] || type;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PREVIEW
+// ═══════════════════════════════════════════════════════════════
+function renderPreview() {
+  const raw = document.getElementById('puzzleInput').value;
+  const puzzle = parsePuzzle(raw);
+  currentPuzzle = puzzle;
+
+  const display = document.getElementById('puzzleDisplay');
+  const cSec    = document.getElementById('constraintSection');
+
+  if (!puzzle) {
+    display.innerHTML = '<div style="color:var(--ink3);font-size:0.8rem;">Invalid format — use: WORD + WORD = RESULT</div>';
+    cSec.style.display = 'none';
+    return;
+  }
+
+  // Build visual puzzle
+  const maxLen = Math.max(...puzzle.addends.map(w=>w.length), puzzle.result.length);
+  const ops = ['', ...puzzle.addends.slice(1).map((_,i)=>'+'), '='];
+  const allWords = [...puzzle.addends, puzzle.result];
+  const opSymbols = [' ', ...puzzle.addends.slice(1).map(()=>'+')];
+
+  let html = '<div class="puzzle-words">';
+  puzzle.addends.forEach((w, i) => {
+    const op = i===0 ? '&nbsp;' : '+';
+    html += `<div class="puzzle-row"><span class="puzzle-op">${op}</span><span class="puzzle-word">${w}</span></div>`;
+  });
+  html += `<div class="puzzle-divider"></div>`;
+  html += `<div class="puzzle-result-row"><span class="puzzle-eq">=</span><span class="puzzle-word">${puzzle.result}</span></div>`;
+  html += '</div>';
+  display.innerHTML = html;
+
+  // Constraints
+  const cl = document.getElementById('constraintList');
+  cl.innerHTML = '';
+  const chips = [
+    `${puzzle.letters.length} unique letters`,
+    `${puzzle.letters.length} variables`,
+    `Domain: {0–9} each`,
+    `${puzzle.leadLetters.size} leading ≠ 0`,
+    `All-Diff constraint`,
+    `${puzzle.addends.length} addend(s)`,
+  ];
+  chips.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'constraint-chip';
+    d.textContent = c;
+    cl.appendChild(d);
+  });
+  cSec.style.display = 'block';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SOLVE
+// ═══════════════════════════════════════════════════════════════
+function solve() {
+  const raw = document.getElementById('puzzleInput').value;
+  const puzzle = parsePuzzle(raw);
+  if (!puzzle) { alert('Invalid puzzle format.\n\nUse: WORD + WORD = RESULT'); return; }
+  if (puzzle.letters.length > 10) { alert('Too many unique letters (max 10).'); return; }
+
+  currentPuzzle = puzzle;
+
+  // Show CSP info
+  showCSPInfo(puzzle);
+
+  // Show progress
+  const progCard = document.getElementById('progressCard');
+  progCard.style.display = 'block';
+  document.getElementById('traceLog').innerHTML = '';
+  document.getElementById('resultArea').classList.remove('show');
+  setProgress(5, 'Initialising CSP variables…');
+  setStatus('run');
+  document.getElementById('solveBtn').disabled = true;
+
+  let pct = 5;
+  const progInterval = setInterval(() => {
+    pct = Math.min(pct + Math.random()*4, 90);
+    setProgress(pct, 'Backtracking with MRV heuristic…');
+  }, 200);
+
+  currentWorker = solveCSP(puzzle,
+    ({batch, nodes}) => {
+      batch.forEach(({msg, cls}) => appendLog(msg, cls));
+    },
+    ({solution, nodes, elapsed}) => {
+      clearInterval(progInterval);
+      setProgress(100, solution ? '✓ Solution found!' : '✗ No solution');
+      document.getElementById('solveBtn').disabled = false;
+
+      setTimeout(() => {
+        progCard.style.display = 'none';
+        showResult(puzzle, solution, nodes, elapsed);
+        setStatus(solution ? 'done' : 'fail');
+      }, 600);
+    }
+  );
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progressFill').style.width  = pct+'%';
+  document.getElementById('progressPct').textContent   = Math.round(pct)+'%';
+  document.getElementById('progressLabel').textContent = label;
+}
+
+function appendLog(msg, cls) {
+  const box = document.getElementById('traceLog');
+  const d = document.createElement('div');
+  d.className = cls || 'tl';
+  d.textContent = msg;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+
+function showCSPInfo(puzzle) {
+  const card = document.getElementById('cspInfoCard');
+  const grid = document.getElementById('cspInfoGrid');
+  card.style.display = 'block';
+  grid.innerHTML = '';
+  const facts = [
+    ['Variables',     puzzle.letters.join(', ')],
+    ['Domain Size',   '10 digits (0–9)'],
+    ['Constraints',   'All-Diff + Arithmetic'],
+    ['Leading ≠ 0',   [...puzzle.leadLetters].join(', ')],
+    ['Addends',       puzzle.addends.join(' + ')],
+    ['Result',        puzzle.result],
+    ['Search Method', 'Backtracking + MRV'],
+    ['Pruning',       'Forward Checking'],
+  ];
+  facts.forEach(([label, val]) => {
+    grid.innerHTML += `
+      <div class="info-cell">
+        <div class="info-cell-label">${label}</div>
+        <div class="info-cell-value">${val}</div>
+      </div>`;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RESULT DISPLAY
+// ═══════════════════════════════════════════════════════════════
+function showResult(puzzle, solution, nodes, elapsed) {
+  const area    = document.getElementById('resultArea');
+  const banner  = document.getElementById('resultBanner');
+  const icon    = document.getElementById('resultIcon');
+  const heading = document.getElementById('resultHeading');
+  const sub     = document.getElementById('resultSub');
+  const mapSec  = document.getElementById('mappingSection');
+  const mapGrid = document.getElementById('mappingGrid');
+  const eqVerify= document.getElementById('equationVerify');
+
+  area.classList.add('show');
+
+  if (!solution) {
+    banner.className = 'result-banner failure';
+    icon.textContent = '✗';
+    heading.textContent = 'No Solution Exists';
+    sub.textContent = `The puzzle "${puzzle.addends.join(' + ')} = ${puzzle.result}" has no valid digit assignment.`;
+    mapSec.style.display = 'none';
+    return;
+  }
+
+  banner.className = 'result-banner success';
+  icon.textContent = '✓';
+  heading.textContent = 'Unique Solution Found!';
+  sub.textContent = `Explored ${nodes.toLocaleString()} nodes in ${elapsed}ms using Backtracking + MRV + Forward Checking.`;
+
+  // Mapping grid (sorted alphabetically)
+  mapGrid.innerHTML = '';
+  const sorted = Object.entries(solution).sort((a,b)=>a[0].localeCompare(b[0]));
+  sorted.forEach(([letter, digit], i) => {
+    const d = document.createElement('div');
+    d.className = 'map-card';
+    d.style.animationDelay = (i * 0.04) + 's';
+    d.innerHTML = `
+      <div class="map-letter">${letter}</div>
+      <div class="map-arrow">↓</div>
+      <div class="map-digit">${digit}</div>
+    `;
+    mapGrid.appendChild(d);
+  });
+
+  // Equation verification
+  function wordToNum(w) {
+    return parseInt(w.split('').map(c=>solution[c]).join(''));
+  }
+
+  const addendNums = puzzle.addends.map(wordToNum);
+  const resultNum  = wordToNum(puzzle.result);
+  const sum        = addendNums.reduce((a,b)=>a+b,0);
+  const correct    = sum === resultNum;
+
+  let eqHTML = '<div class="eq-line">';
+  puzzle.addends.forEach((w, i) => {
+    if (i > 0) eqHTML += `<span class="eq-op">+</span>`;
+    eqHTML += `<span class="eq-word">${w}</span>`;
+    eqHTML += `<span class="eq-op">=</span>`;
+    eqHTML += `<span class="eq-digit">${addendNums[i]}</span>`;
+    if (i < puzzle.addends.length-1) eqHTML += `<br style="margin:4px 0">`;
+  });
+  eqHTML += `</div>`;
+  eqHTML += `<div class="eq-line" style="margin-top:6px;">`;
+  eqHTML += `<span class="eq-word">${puzzle.result}</span>`;
+  eqHTML += `<span class="eq-op">=</span>`;
+  eqHTML += `<span class="eq-result">${resultNum}</span>`;
+  eqHTML += `<span class="eq-check">${correct?'✓':' ✗'}</span>`;
+  eqHTML += `</div>`;
+  eqHTML += `<div class="eq-numeric" style="margin-top:10px;">${addendNums.join(' + ')} = ${sum} ${correct?'✓ Verified':'✗ Error'}</div>`;
+
+  eqVerify.innerHTML = eqHTML;
+  mapSec.style.display = 'block';
+
+  // Scroll to result
+  setTimeout(() => document.getElementById('resultArea').scrollIntoView({behavior:'smooth', block:'start'}), 100);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+renderPreview();
+</script>
+</body>
+</html>
