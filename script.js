@@ -1,67 +1,145 @@
-body {
-    text-align: center;
-    font-family: 'Segoe UI', sans-serif;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
+let board = ["","","","","","","","",""];
+let gameOver = false;
+
+const boardDiv = document.getElementById("board");
+const status = document.getElementById("status");
+
+// -------- CREATE BOARD --------
+function createBoard() {
+    boardDiv.innerHTML = "";
+    for (let i = 0; i < 9; i++) {
+        let cell = document.createElement("button");
+        cell.classList.add("cell");
+        cell.addEventListener("click", () => handleMove(i));
+        boardDiv.appendChild(cell);
+    }
+}
+createBoard();
+
+// -------- CHECK WINNER --------
+function checkWinner(b, player) {
+    const winPatterns = [
+        [0,1,2],[3,4,5],[6,7,8],
+        [0,3,6],[1,4,7],[2,5,8],
+        [0,4,8],[2,4,6]
+    ];
+    return winPatterns.some(pattern =>
+        pattern.every(index => b[index] === player)
+    );
 }
 
-h1 {
-    margin-top: 20px;
+// -------- MINIMAX --------
+function minimax(newBoard, isMaximizing) {
+    if (checkWinner(newBoard, "X")) return -1;
+    if (checkWinner(newBoard, "O")) return 1;
+    if (!newBoard.includes("")) return 0;
+
+    if (isMaximizing) {
+        let bestScore = -Infinity;
+        for (let i = 0; i < 9; i++) {
+            if (newBoard[i] === "") {
+                newBoard[i] = "O";
+                let score = minimax(newBoard, false);
+                newBoard[i] = "";
+                bestScore = Math.max(score, bestScore);
+            }
+        }
+        return bestScore;
+    } else {
+        let bestScore = Infinity;
+        for (let i = 0; i < 9; i++) {
+            if (newBoard[i] === "") {
+                newBoard[i] = "X";
+                let score = minimax(newBoard, true);
+                newBoard[i] = "";
+                bestScore = Math.min(score, bestScore);
+            }
+        }
+        return bestScore;
+    }
 }
 
-#board {
-    display: grid;
-    grid-template-columns: repeat(3, 110px);
-    gap: 12px;
-    justify-content: center;
-    margin: 30px auto;
+// -------- BEST MOVE --------
+function getBestMove() {
+    let bestScore = -Infinity;
+    let move = -1;
+
+    for (let i = 0; i < 9; i++) {
+        if (board[i] === "") {
+            board[i] = "O";
+            let score = minimax(board, false);
+            board[i] = "";
+
+            if (score > bestScore) {
+                bestScore = score;
+                move = i;
+            }
+        }
+    }
+    return move;
 }
 
-.cell {
-    width: 110px;
-    height: 110px;
-    font-size: 40px;
-    font-weight: bold;
-    border: none;
-    border-radius: 15px;
-    cursor: pointer;
-    background: white;
-    color: #333;
-    transition: 0.3s;
+// -------- HANDLE PLAYER MOVE --------
+function handleMove(index) {
+    if (board[index] !== "" || gameOver) return;
+
+    board[index] = "X";
+    updateUI();
+
+    if (checkWinner(board, "X")) {
+        status.innerText = "🎉 You Win!";
+        gameOver = true;
+        return;
+    }
+
+    if (!board.includes("")) {
+        status.innerText = "🤝 Draw!";
+        gameOver = true;
+        return;
+    }
+
+    status.innerText = "🤖 AI Thinking...";
+
+    setTimeout(() => {
+        let aiMove = getBestMove();
+        board[aiMove] = "O";
+        updateUI();
+
+        if (checkWinner(board, "O")) {
+            status.innerText = "😈 AI Wins!";
+            gameOver = true;
+        } else if (!board.includes("")) {
+            status.innerText = "🤝 Draw!";
+            gameOver = true;
+        } else {
+            status.innerText = "Your Turn";
+        }
+    }, 400); // delay for realism
 }
 
-.cell:hover {
-    transform: scale(1.1);
-    background: #f1f1f1;
+// -------- UPDATE UI --------
+function updateUI() {
+    const cells = document.querySelectorAll(".cell");
+
+    cells.forEach((cell, i) => {
+        cell.innerText = board[i];
+
+        // remove old styles
+        cell.classList.remove("x", "o");
+
+        // apply color classes
+        if (board[i] === "X") {
+            cell.classList.add("x");
+        } else if (board[i] === "O") {
+            cell.classList.add("o");
+        }
+    });
 }
 
-/* X and O colors */
-.cell.x {
-    color: #ff4d6d;
-}
-
-.cell.o {
-    color: #00c2ff;
-}
-
-/* Status text */
-#status {
-    font-size: 20px;
-    margin: 10px;
-}
-
-/* Buttons */
-button {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 25px;
-    background: #ffcc00;
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.3s;
-}
-
-button:hover {
-    background: #ffaa00;
-    transform: scale(1.05);
+// -------- RESET GAME --------
+function resetGame() {
+    board = ["","","","","","","","",""];
+    gameOver = false;
+    status.innerText = "Your Turn";
+    updateUI();
 }
