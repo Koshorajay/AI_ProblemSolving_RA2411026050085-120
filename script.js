@@ -1,110 +1,67 @@
-let board = ["","","","","","","","",""];
-let gameOver = false;
-
-const boardDiv = document.getElementById("board");
-const status = document.getElementById("status");
-
-// Create board
-for (let i = 0; i < 9; i++) {
-    let btn = document.createElement("button");
-    btn.classList.add("cell");
-    btn.onclick = () => playerMove(i);
-    boardDiv.appendChild(btn);
+body {
+    text-align: center;
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
 }
 
-// Check winner
-function checkWinner(b, p) {
-    const wins = [
-        [0,1,2],[3,4,5],[6,7,8],
-        [0,3,6],[1,4,7],[2,5,8],
-        [0,4,8],[2,4,6]
-    ];
-    return wins.some(c => c.every(i => b[i] === p));
+h1 {
+    margin-top: 20px;
 }
 
-// Minimax AI
-function minimax(newBoard, isMax) {
-    if (checkWinner(newBoard, "X")) return -1;
-    if (checkWinner(newBoard, "O")) return 1;
-    if (!newBoard.includes("")) return 0;
-
-    if (isMax) {
-        let best = -Infinity;
-        for (let i=0;i<9;i++){
-            if(newBoard[i]==""){
-                newBoard[i]="O";
-                best = Math.max(best, minimax(newBoard,false));
-                newBoard[i]="";
-            }
-        }
-        return best;
-    } else {
-        let best = Infinity;
-        for (let i=0;i<9;i++){
-            if(newBoard[i]==""){
-                newBoard[i]="X";
-                best = Math.min(best, minimax(newBoard,true));
-                newBoard[i]="";
-            }
-        }
-        return best;
-    }
+#board {
+    display: grid;
+    grid-template-columns: repeat(3, 110px);
+    gap: 12px;
+    justify-content: center;
+    margin: 30px auto;
 }
 
-// Best move
-function bestMove() {
-    let bestVal = -Infinity;
-    let move = -1;
-
-    for (let i=0;i<9;i++){
-        if(board[i]==""){
-            board[i]="O";
-            let val = minimax(board,false);
-            board[i]="";
-
-            if(val > bestVal){
-                bestVal = val;
-                move = i;
-            }
-        }
-    }
-    return move;
+.cell {
+    width: 110px;
+    height: 110px;
+    font-size: 40px;
+    font-weight: bold;
+    border: none;
+    border-radius: 15px;
+    cursor: pointer;
+    background: white;
+    color: #333;
+    transition: 0.3s;
 }
 
-// Player move
-function playerMove(i){
-    if(board[i]!=="" || gameOver) return;
-
-    board[i]="X";
-    updateUI();
-
-    if(checkWinner(board,"X")){
-        status.innerText="You Win!";
-        gameOver=true;
-        return;
-    }
-
-    let ai = bestMove();
-    board[ai]="O";
-    updateUI();
-
-    if(checkWinner(board,"O")){
-        status.innerText="AI Wins!";
-        gameOver=true;
-    }
+.cell:hover {
+    transform: scale(1.1);
+    background: #f1f1f1;
 }
 
-// Update UI
-function updateUI(){
-    document.querySelectorAll(".cell").forEach((c,i)=>{
-        c.innerText = board[i];
-    });
+/* X and O colors */
+.cell.x {
+    color: #ff4d6d;
 }
 
-// Reset
-function resetGame(){
-    board = ["","","","","","","","",""];
-    gameOver=false;
-    status.innerText="Your Turn";
-    updateUI();
+.cell.o {
+    color: #00c2ff;
+}
+
+/* Status text */
+#status {
+    font-size: 20px;
+    margin: 10px;
+}
+
+/* Buttons */
+button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 25px;
+    background: #ffcc00;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+button:hover {
+    background: #ffaa00;
+    transform: scale(1.05);
 }
